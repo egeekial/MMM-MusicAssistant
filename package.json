@@ -1,0 +1,22 @@
+{
+  "name": "mmm-musicassistant",
+  "version": "1.0.0",
+  "description": "A MagicMirror² module that shows now-playing info (artist, album, song, progress, album art) from a Music Assistant server.",
+  "main": "MMM-MusicAssistant.js",
+  "keywords": [
+    "MagicMirror",
+    "MMM",
+    "Music Assistant",
+    "now playing",
+    "music"
+  ],
+  "license": "MIT",
+  "author": "egeekial",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/egeekial/MMM-MusicAssistant"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
