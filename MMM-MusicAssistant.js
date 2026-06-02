@@ -43,12 +43,35 @@ Module.register("MMM-MusicAssistant", {
 
   socketNotificationReceived(notification, payload) {
     if (notification === "NOW_PLAYING") {
-      const wasIdle = !this.nowPlaying || this.nowPlaying.state === "idle";
-      const isIdle = !payload || payload.state === "idle";
+      const prev = this.nowPlaying;
       this.nowPlaying = payload;
-      // Full re-render on meaningful change (track/state/idle transition).
-      this.updateDom(wasIdle && isIdle ? 0 : this.config.animationSpeed);
+
+      // The backend pushes a fresh payload roughly once a second to keep elapsed
+      // time in sync. Re-rendering on every push makes MagicMirror's animated
+      // updateDom fade the card out-and-in each second (a visible flash), so only
+      // do a full re-render when something the user can actually see changes.
+      if (this.isMeaningfulChange(prev, payload)) {
+        const wasIdle = !prev || prev.state === "idle";
+        const isIdle = !payload || payload.state === "idle";
+        this.updateDom(wasIdle && isIdle ? 0 : this.config.animationSpeed);
+      } else {
+        // Only timing changed — resync the local ticker without touching the DOM.
+        this.tickProgress();
+      }
     }
+  },
+
+  /** True when a field the card renders changed (ignores elapsed/timing). */
+  isMeaningfulChange(prev, next) {
+    if (!prev || !next) return true;
+    return (
+      prev.state !== next.state ||
+      prev.title !== next.title ||
+      prev.artist !== next.artist ||
+      prev.album !== next.album ||
+      prev.imageUrl !== next.imageUrl ||
+      JSON.stringify(prev.nextUp) !== JSON.stringify(next.nextUp)
+    );
   },
 
   // -------------------------------------------------------------- progress tick

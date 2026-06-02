@@ -40,6 +40,10 @@
   filter: blur(26px) brightness(0.45) saturate(1.2);
   transform: scale(1.1);
   z-index: 0;
+  /* Feather the blurred art toward its edges so it dissolves into the black
+     mirror screen instead of ending at a hard rounded-rectangle edge. */
+  -webkit-mask-image: radial-gradient(125% 125% at 50% 42%, #000 45%, transparent 88%);
+  mask-image: radial-gradient(125% 125% at 50% 42%, #000 45%, transparent 88%);
 }
 
 .mma-background .mma-card,
