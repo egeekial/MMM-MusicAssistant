@@ -19,9 +19,9 @@ refreshed look (blurred album-art background by default).
   automatically switch to any other player that is actively playing
 - Hides itself when nothing is playing
 
-## Screenshots
+## Screenshot
 
-_(Add a screenshot here once running.)_
+![MMM-MusicAssistant showing a track playing](screenshots/now-playing.png)
 
 ## Installation
 
