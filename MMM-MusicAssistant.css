@@ -1,5 +1,11 @@
 /* MMM-MusicAssistant.css */
 
+/* Pull a color emoji font from Google Fonts so emoji in titles render without
+   the user installing any OS font. Falls back to the OS emoji font (and finally
+   a tofu box) if the mirror has no internet at load time. @import must stay at
+   the top of the file, before any rules. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji");
+
 .mma {
   --mma-width: 340px;
   --mma-art: 84px;
@@ -8,6 +14,11 @@
   width: var(--mma-width);
   border-radius: 14px;
   animation: mma-fade 0.6s ease;
+  /* Keep MagicMirror's Roboto for text, but fall through to an emoji font for
+     glyphs Roboto lacks (e.g. an emoji in a song title) instead of drawing a
+     "missing glyph" box. The browser picks the right font per-glyph. */
+  font-family: "Roboto", "Roboto Condensed", "Noto Color Emoji",
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
 }
 
 .mma-hidden {
