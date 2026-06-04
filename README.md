@@ -5,8 +5,9 @@ information from a [Music Assistant](https://music-assistant.io) server: artist,
 album, song title, total length, elapsed/remaining time, a smooth progress bar, and
 album art — plus a short "next up" list.
 
-Inspired by [MMM-Mopidy-MPD](https://github.com/coderpussy/MMM-Mopidy-MPD), with a
-refreshed look (blurred album-art background by default).
+Inspired by [MMM-Mopidy-MPD](https://github.com/coderpussy/MMM-Mopidy-MPD) and
+[MMM-Spotify](https://github.com/skuethe/MMM-Spotify), with a refreshed look
+(blurred album-art background by default).
 
 ## Features
 
@@ -21,7 +22,7 @@ refreshed look (blurred album-art background by default).
 
 ## Screenshot
 
-![MMM-MusicAssistant showing a track playing](screenshots/now-playing.png)
+![MMM-MusicAssistant showing a track playing](screenshots/screenshot-now-playing.png)
 
 ## Installation
 
