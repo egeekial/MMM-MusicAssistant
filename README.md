@@ -6,8 +6,8 @@ album, song title, total length, elapsed/remaining time, a smooth progress bar, 
 album art — plus a short "next up" list.
 
 Inspired by [MMM-Mopidy-MPD](https://github.com/coderpussy/MMM-Mopidy-MPD) and
-[MMM-Spotify](https://github.com/skuethe/MMM-Spotify), with a refreshed look
-(blurred album-art background by default).
+[MMM-Spotify](https://github.com/skuethe/MMM-Spotify) (blurred album-art background
+by default).
 
 ## Features
 
