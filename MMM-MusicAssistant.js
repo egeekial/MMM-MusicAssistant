@@ -206,7 +206,13 @@ Module.register("MMM-MusicAssistant", {
     const ratio = duration > 0 ? Math.min(1, elapsed / duration) : 0;
 
     const bar = document.getElementById(`mma-bar-${this.identifier}`);
-    if (bar) this.applyBarRatio(bar, ratio);
+    if (bar) {
+      // Measure the bar width lazily, the first time we see it on screen, so the
+      // knob can be positioned in px. (We can't measure at build time: MM swaps
+      // animated DOM in via a delayed setTimeout, so the bar isn't laid out yet.)
+      if (!this.barWidthPx) this.barWidthPx = bar.clientWidth || 0;
+      this.applyBarRatio(bar, ratio);
+    }
 
     const elapsedEl = document.getElementById(`mma-elapsed-${this.identifier}`);
     if (elapsedEl) elapsedEl.textContent = this.formatTime(elapsed);
@@ -229,21 +235,16 @@ Module.register("MMM-MusicAssistant", {
   },
 
   /**
-   * After the bar is in the DOM, measure its width once so the knob can be
-   * positioned in px (translateX). Cached and reused; the width is stable at
-   * runtime, so this is effectively a one-time read.
+   * Nudge a progress tick once the freshly-built card is actually on screen.
+   * MagicMirror inserts animated DOM after ~animationSpeed/2 ms, so we wait past
+   * that; tickProgress then measures the bar width and positions the knob,
+   * instead of leaving it parked at the left edge until the next 1s tick.
    */
   measureBarSoon() {
-    if (typeof requestAnimationFrame !== "function") return;
-    requestAnimationFrame(() => {
-      const bar = document.getElementById(`mma-bar-${this.identifier}`);
-      if (!bar) return;
-      const w = bar.clientWidth;
-      if (w && w !== this.barWidthPx) {
-        this.barWidthPx = w;
-        this.tickProgress();
-      }
-    });
+    setTimeout(
+      () => this.tickProgress(),
+      (this.config.animationSpeed || 0) + 60
+    );
   },
 
   // ----------------------------------------------------------------------- DOM
