@@ -48,7 +48,13 @@
   background-size: cover;
   background-position: center;
   filter: blur(26px) brightness(0.45) saturate(1.2);
-  transform: scale(1.1);
+  /* translateZ(0) promotes the blurred art to its own GPU layer so the heavy
+     26px blur is rasterized once and is NOT re-painted when the foreground
+     card/progress bar updates each second. contain:paint keeps its repaints
+     from leaking out. This is the main CPU win. */
+  transform: scale(1.1) translateZ(0);
+  will-change: transform;
+  contain: paint;
   z-index: 0;
   /* Feather every edge of the blurred art to transparent so it dissolves into
      the black mirror screen. We intersect a horizontal and a vertical fade so
@@ -140,8 +146,15 @@
   height: 100%;
   border-radius: 4px;
   background: var(--mma-accent);
-  width: 0%;
-  transition: width 0.9s linear;
+  /* Animate the fill with transform: scaleX() rather than width. A transform is
+     handled entirely by the compositor (no per-frame layout/paint), so the
+     once-a-second progress tick no longer forces the renderer to repaint. The
+     box stays full-width and is scaled down via --mma-pct (0..1). */
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(var(--mma-pct, 0));
+  transition: transform 0.9s linear;
+  will-change: transform;
 }
 
 .mma-bar-knob {
@@ -152,7 +165,11 @@
   height: 9px;
   border-radius: 50%;
   background: var(--mma-accent);
-  transform: translateY(-50%);
+  /* The knob lives inside the scaled fill, so it inherits the fill's horizontal
+     scale and would look squashed. --mma-knob-inv (= 1/pct) counter-scales it
+     back to a round dot while keeping it pinned to the fill's right edge. */
+  transform-origin: center;
+  transform: translateY(-50%) scaleX(var(--mma-knob-inv, 1));
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 

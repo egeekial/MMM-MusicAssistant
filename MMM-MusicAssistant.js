@@ -47,16 +47,29 @@ Module.register("MMM-MusicAssistant", {
       this.nowPlaying = payload;
 
       // The backend pushes a fresh payload roughly once a second to keep elapsed
-      // time in sync. Re-rendering on every push makes MagicMirror's animated
-      // updateDom fade the card out-and-in each second (a visible flash), so only
-      // do a full re-render when something the user can actually see changes.
-      if (this.isMeaningfulChange(prev, payload)) {
+      // time in sync. We avoid MagicMirror's animated updateDom wherever we can,
+      // because it fades the whole module out-and-in (a visible flash) and reloads
+      // the album art. Three tiers, cheapest first:
+      //   1. Nothing meaningful changed -> just resync the local progress ticker.
+      //   2. Only fields changed, same layout -> patch those nodes in place
+      //      (no fade, and art is left alone unless its URL actually changed).
+      //   3. The layout itself changed -> fall back to a full animated re-render.
+      if (!this.isMeaningfulChange(prev, payload)) {
+        this.tickProgress();
+        return;
+      }
+
+      const canPatch =
+        prev && prev.state !== "idle" &&
+        payload && payload.state !== "idle" &&
+        this.sameStructure(prev, payload);
+
+      if (canPatch) {
+        this.patchInPlace(prev, payload);
+      } else {
         const wasIdle = !prev || prev.state === "idle";
         const isIdle = !payload || payload.state === "idle";
         this.updateDom(wasIdle && isIdle ? 0 : this.config.animationSpeed);
-      } else {
-        // Only timing changed — resync the local ticker without touching the DOM.
-        this.tickProgress();
       }
     }
   },
@@ -72,6 +85,85 @@ Module.register("MMM-MusicAssistant", {
       prev.imageUrl !== next.imageUrl ||
       JSON.stringify(prev.nextUp) !== JSON.stringify(next.nextUp)
     );
+  },
+
+  /**
+   * True when prev and next render the *same set of elements* (so we can patch
+   * text/src in place instead of rebuilding). Returns false the moment the DOM
+   * shape would differ, in which case the caller does a full updateDom.
+   */
+  sameStructure(prev, next) {
+    if (!prev || !next) return false;
+    if (!!prev.isRadio !== !!next.isRadio) return false;
+    if (!!prev.artist !== !!next.artist) return false;
+    if (!!prev.imageUrl !== !!next.imageUrl) return false;
+
+    const albumShown = (x) => this.config.showAlbum && !!x.album && !x.isRadio;
+    if (albumShown(prev) !== albumShown(next)) return false;
+
+    const progShown = (x) =>
+      this.config.showProgressBar && !x.isRadio && x.duration > 0;
+    if (progShown(prev) !== progShown(next)) return false;
+
+    const rows = (x) => (this.config.showNextUp && x.nextUp ? x.nextUp : []);
+    const a = rows(prev);
+    const b = rows(next);
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!!a[i].artist !== !!b[i].artist) return false;
+      if (!!a[i].imageUrl !== !!b[i].imageUrl) return false;
+    }
+    return true;
+  },
+
+  /**
+   * Update only the nodes whose content changed, leaving the rest of the DOM
+   * (and crucially the album art, unless its URL changed) untouched. Avoids the
+   * whole-module fade/flash on track changes within the same album/queue.
+   */
+  patchInPlace(prev, next) {
+    const id = this.identifier;
+    const setText = (suffix, text) => {
+      const el = document.getElementById(`mma-${suffix}-${id}`);
+      if (el && el.textContent !== text) el.textContent = text;
+    };
+
+    setText("title", next.title || "");
+    if (next.artist) setText("artist", next.artist);
+    if (this.config.showAlbum && next.album && !next.isRadio) {
+      setText("album", next.album);
+    }
+
+    if (next.imageUrl && next.imageUrl !== prev.imageUrl) {
+      const art = document.getElementById(`mma-art-${id}`);
+      if (art) {
+        art.style.display = "";
+        art.src = next.imageUrl;
+      }
+      const bg = document.getElementById(`mma-bg-${id}`);
+      if (bg) bg.style.backgroundImage = `url("${next.imageUrl}")`;
+    }
+
+    if (this.config.showNextUp && next.nextUp) {
+      next.nextUp.forEach((it, i) => {
+        const prevIt = (prev.nextUp && prev.nextUp[i]) || {};
+        const t = document.getElementById(`mma-nextup-title-${id}-${i}`);
+        if (t && t.textContent !== (it.title || "")) t.textContent = it.title || "";
+        if (it.artist) {
+          const a = document.getElementById(`mma-nextup-artist-${id}-${i}`);
+          if (a && a.textContent !== it.artist) a.textContent = it.artist;
+        }
+        if (it.imageUrl && it.imageUrl !== prevIt.imageUrl) {
+          const img = document.getElementById(`mma-nextup-art-${id}-${i}`);
+          if (img) {
+            img.style.visibility = "";
+            img.src = it.imageUrl;
+          }
+        }
+      });
+    }
+
+    this.tickProgress();
   },
 
   // -------------------------------------------------------------- progress tick
@@ -110,10 +202,10 @@ Module.register("MMM-MusicAssistant", {
 
     const elapsed = this.currentElapsed();
     const duration = np.duration || 0;
-    const pct = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+    const ratio = duration > 0 ? Math.min(1, elapsed / duration) : 0;
 
     const fill = document.getElementById(`mma-fill-${this.identifier}`);
-    if (fill) fill.style.width = `${pct}%`;
+    if (fill) this.applyBarRatio(fill, ratio);
 
     const elapsedEl = document.getElementById(`mma-elapsed-${this.identifier}`);
     if (elapsedEl) elapsedEl.textContent = this.formatTime(elapsed);
@@ -122,6 +214,17 @@ Module.register("MMM-MusicAssistant", {
     if (remainEl && duration > 0) {
       remainEl.textContent = `-${this.formatTime(duration - elapsed)}`;
     }
+  },
+
+  /**
+   * Drive the progress fill (and its knob) via CSS variables. The fill scales
+   * with --mma-pct (0..1); the knob counter-scales with --mma-knob-inv (1/pct)
+   * so it stays a round dot inside the scaled fill. Using transform here keeps
+   * the per-second update on the compositor with no layout/paint.
+   */
+  applyBarRatio(fill, ratio) {
+    fill.style.setProperty("--mma-pct", ratio);
+    fill.style.setProperty("--mma-knob-inv", ratio > 0 ? 1 / ratio : 1);
   },
 
   // ----------------------------------------------------------------------- DOM
@@ -143,6 +246,7 @@ Module.register("MMM-MusicAssistant", {
     if (this.config.layout === "background" && np.imageUrl) {
       const bg = document.createElement("div");
       bg.className = "mma-bg";
+      bg.id = `mma-bg-${this.identifier}`;
       bg.style.backgroundImage = `url("${np.imageUrl}")`;
       wrapper.appendChild(bg);
     }
@@ -170,6 +274,7 @@ Module.register("MMM-MusicAssistant", {
     if (np.imageUrl) {
       const art = document.createElement("img");
       art.className = "mma-art";
+      art.id = `mma-art-${this.identifier}`;
       art.src = np.imageUrl;
       art.alt = "";
       art.onerror = () => {
@@ -183,12 +288,14 @@ Module.register("MMM-MusicAssistant", {
 
     const title = document.createElement("div");
     title.className = "mma-title bright";
+    title.id = `mma-title-${this.identifier}`;
     title.textContent = np.title || "";
     info.appendChild(title);
 
     if (np.artist) {
       const artist = document.createElement("div");
       artist.className = "mma-artist";
+      artist.id = `mma-artist-${this.identifier}`;
       artist.textContent = np.artist;
       info.appendChild(artist);
     }
@@ -196,6 +303,7 @@ Module.register("MMM-MusicAssistant", {
     if (this.config.showAlbum && np.album && !np.isRadio) {
       const album = document.createElement("div");
       album.className = "mma-album dimmed";
+      album.id = `mma-album-${this.identifier}`;
       album.textContent = np.album;
       info.appendChild(album);
     }
@@ -211,7 +319,7 @@ Module.register("MMM-MusicAssistant", {
   buildProgress(np) {
     const elapsed = this.currentElapsed();
     const duration = np.duration || 0;
-    const pct = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+    const ratio = duration > 0 ? Math.min(1, elapsed / duration) : 0;
 
     const container = document.createElement("div");
     container.className = "mma-progress";
@@ -221,7 +329,7 @@ Module.register("MMM-MusicAssistant", {
     const fill = document.createElement("div");
     fill.className = "mma-bar-fill";
     fill.id = `mma-fill-${this.identifier}`;
-    fill.style.width = `${pct}%`;
+    this.applyBarRatio(fill, ratio);
     const knob = document.createElement("div");
     knob.className = "mma-bar-knob";
     fill.appendChild(knob);
@@ -255,13 +363,14 @@ Module.register("MMM-MusicAssistant", {
     heading.textContent = this.translate("NEXT_UP");
     wrap.appendChild(heading);
 
-    items.forEach((it) => {
+    items.forEach((it, i) => {
       const row = document.createElement("div");
       row.className = "mma-nextup-row";
 
       if (it.imageUrl) {
         const img = document.createElement("img");
         img.className = "mma-nextup-art";
+        img.id = `mma-nextup-art-${this.identifier}-${i}`;
         img.src = it.imageUrl;
         img.alt = "";
         img.onerror = () => {
@@ -274,11 +383,13 @@ Module.register("MMM-MusicAssistant", {
       text.className = "mma-nextup-text";
       const t = document.createElement("div");
       t.className = "mma-nextup-title small";
+      t.id = `mma-nextup-title-${this.identifier}-${i}`;
       t.textContent = it.title || "";
       text.appendChild(t);
       if (it.artist) {
         const a = document.createElement("div");
         a.className = "mma-nextup-artist xsmall dimmed";
+        a.id = `mma-nextup-artist-${this.identifier}-${i}`;
         a.textContent = it.artist;
         text.appendChild(a);
       }
