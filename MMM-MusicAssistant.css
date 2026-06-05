@@ -148,14 +148,15 @@
   width: 100%;
   border-radius: 4px;
   background: var(--mma-accent);
-  /* Animate the fill with transform: scaleX() rather than width. A transform is
-     handled entirely by the compositor (no per-frame layout/paint), so the
-     once-a-second progress tick no longer forces the renderer to repaint -- this
-     is the main CPU win. The box stays full-width and is scaled by --mma-pct
-     (0..1), which is inherited from .mma-bar. */
+  /* Scale the fill with --mma-pct (0..1, inherited from .mma-bar). We update it
+     once per second and deliberately DON'T transition it: a transition would run
+     a 60fps animation for ~0.9s of every second, and each of those frames forces
+     the foreground to re-composite over the heavy blur(26px) + mask background.
+     Stepping once per second is ~1px per tick on a typical bar -- visually
+     near-identical -- and turns ~60 repaints/sec into 1. This is the main CPU
+     win. */
   transform-origin: left center;
   transform: scaleX(var(--mma-pct, 0));
-  transition: transform 0.9s linear;
 }
 
 .mma-bar-knob {
@@ -169,7 +170,8 @@
   border-radius: 50%;
   background: var(--mma-accent);
   transform: translate(-50%, -50%);
-  transition: left 0.9s linear;
+  /* No transition, for the same reason as the fill: step once per second rather
+     than running a continuous 60fps animation over the blurred background. */
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
