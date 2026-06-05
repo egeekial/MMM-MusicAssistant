@@ -204,8 +204,8 @@ Module.register("MMM-MusicAssistant", {
     const duration = np.duration || 0;
     const ratio = duration > 0 ? Math.min(1, elapsed / duration) : 0;
 
-    const fill = document.getElementById(`mma-fill-${this.identifier}`);
-    if (fill) this.applyBarRatio(fill, ratio);
+    const bar = document.getElementById(`mma-bar-${this.identifier}`);
+    if (bar) this.applyBarRatio(bar, ratio);
 
     const elapsedEl = document.getElementById(`mma-elapsed-${this.identifier}`);
     if (elapsedEl) elapsedEl.textContent = this.formatTime(elapsed);
@@ -217,14 +217,13 @@ Module.register("MMM-MusicAssistant", {
   },
 
   /**
-   * Drive the progress fill (and its knob) via CSS variables. The fill scales
-   * with --mma-pct (0..1); the knob counter-scales with --mma-knob-inv (1/pct)
-   * so it stays a round dot inside the scaled fill. Using transform here keeps
-   * the per-second update on the compositor with no layout/paint.
+   * Drive the progress bar via a single CSS variable on the .mma-bar element.
+   * The fill (transform: scaleX) and the knob (left: %) both inherit --mma-pct
+   * (0..1). The fill animates on the compositor (no per-frame layout/paint), so
+   * the once-a-second tick stays cheap.
    */
-  applyBarRatio(fill, ratio) {
-    fill.style.setProperty("--mma-pct", ratio);
-    fill.style.setProperty("--mma-knob-inv", ratio > 0 ? 1 / ratio : 1);
+  applyBarRatio(bar, ratio) {
+    bar.style.setProperty("--mma-pct", ratio);
   },
 
   // ----------------------------------------------------------------------- DOM
@@ -326,14 +325,16 @@ Module.register("MMM-MusicAssistant", {
 
     const bar = document.createElement("div");
     bar.className = "mma-bar";
+    bar.id = `mma-bar-${this.identifier}`;
+    this.applyBarRatio(bar, ratio);
     const fill = document.createElement("div");
     fill.className = "mma-bar-fill";
-    fill.id = `mma-fill-${this.identifier}`;
-    this.applyBarRatio(fill, ratio);
+    bar.appendChild(fill);
+    // Knob is a sibling of the fill so the fill's scaleX never distorts it; both
+    // read --mma-pct inherited from the bar.
     const knob = document.createElement("div");
     knob.className = "mma-bar-knob";
-    fill.appendChild(knob);
-    bar.appendChild(fill);
+    bar.appendChild(knob);
 
     const times = document.createElement("div");
     times.className = "mma-times dimmed xsmall";
