@@ -36,6 +36,7 @@ Module.register("MMM-MusicAssistant", {
   start() {
     this.nowPlaying = null;
     this.ticker = null;
+    this.barWidthPx = 0; // measured lazily; used to position the knob in px
     Log.info(`Starting module: ${this.name}`);
     this.sendSocketNotification("START", this.config);
     this.startTicker();
@@ -217,13 +218,32 @@ Module.register("MMM-MusicAssistant", {
   },
 
   /**
-   * Drive the progress bar via a single CSS variable on the .mma-bar element.
-   * The fill (transform: scaleX) and the knob (left: %) both inherit --mma-pct
-   * (0..1). The fill animates on the compositor (no per-frame layout/paint), so
-   * the once-a-second tick stays cheap.
+   * Drive the progress bar via CSS variables on the .mma-bar element. The fill
+   * scales with --mma-pct (0..1); the knob translates by --mma-knob-x (px along
+   * the measured bar width). Both animate via `transform`, i.e. on the compositor
+   * thread, so the smoothing transition is cheap (no per-frame repaint).
    */
   applyBarRatio(bar, ratio) {
     bar.style.setProperty("--mma-pct", ratio);
+    bar.style.setProperty("--mma-knob-x", `${(this.barWidthPx || 0) * ratio}px`);
+  },
+
+  /**
+   * After the bar is in the DOM, measure its width once so the knob can be
+   * positioned in px (translateX). Cached and reused; the width is stable at
+   * runtime, so this is effectively a one-time read.
+   */
+  measureBarSoon() {
+    if (typeof requestAnimationFrame !== "function") return;
+    requestAnimationFrame(() => {
+      const bar = document.getElementById(`mma-bar-${this.identifier}`);
+      if (!bar) return;
+      const w = bar.clientWidth;
+      if (w && w !== this.barWidthPx) {
+        this.barWidthPx = w;
+        this.tickProgress();
+      }
+    });
   },
 
   // ----------------------------------------------------------------------- DOM
@@ -326,7 +346,14 @@ Module.register("MMM-MusicAssistant", {
     const bar = document.createElement("div");
     bar.className = "mma-bar";
     bar.id = `mma-bar-${this.identifier}`;
+    // Smooth the per-tick step over (just under) the tick interval so the glide
+    // finishes before the next update rather than overshooting it.
+    bar.style.setProperty(
+      "--mma-anim",
+      `${Math.round(this.config.updateProgressInterval * 0.9)}ms`
+    );
     this.applyBarRatio(bar, ratio);
+    this.measureBarSoon();
     const fill = document.createElement("div");
     fill.className = "mma-bar-fill";
     bar.appendChild(fill);

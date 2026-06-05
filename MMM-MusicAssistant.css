@@ -148,30 +148,33 @@
   width: 100%;
   border-radius: 4px;
   background: var(--mma-accent);
-  /* Scale the fill with --mma-pct (0..1, inherited from .mma-bar). We update it
-     once per second and deliberately DON'T transition it: a transition would run
-     a 60fps animation for ~0.9s of every second, and each of those frames forces
-     the foreground to re-composite over the heavy blur(26px) + mask background.
-     Stepping once per second is ~1px per tick on a typical bar -- visually
-     near-identical -- and turns ~60 repaints/sec into 1. This is the main CPU
-     win. */
+  /* Scale the fill with --mma-pct (0..1, inherited from .mma-bar). We DO smooth
+     the once-a-second step, but only via `transform` -- a transform transition
+     runs on the compositor thread (the element gets its own layer), so the glide
+     is GPU compositing of cached textures, NOT a per-frame main-thread repaint
+     over the heavy blur(26px) + mask background. That keeps it smooth and cheap.
+     Duration --mma-anim is set from updateProgressInterval so it tracks, not
+     overshoots, the tick rate. */
   transform-origin: left center;
   transform: scaleX(var(--mma-pct, 0));
+  transition: transform var(--mma-anim, 0.9s) linear;
 }
 
 .mma-bar-knob {
   /* Sibling of the fill (not a child), so it is never distorted by the fill's
-     scaleX. Positioned along the bar by --mma-pct; only its tiny rect repaints. */
+     scaleX. Position is driven by --mma-knob-x (px along the bar, computed from
+     the measured bar width) via transform/translate -- same compositor-only path
+     as the fill, so it glides smoothly without a main-thread `left` animation. */
   position: absolute;
   top: 50%;
-  left: calc(var(--mma-pct, 0) * 100%);
+  left: 0;
+  margin-left: -4.5px; /* center the 9px dot on its position */
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--mma-accent);
-  transform: translate(-50%, -50%);
-  /* No transition, for the same reason as the fill: step once per second rather
-     than running a continuous 60fps animation over the blurred background. */
+  transform: translate(var(--mma-knob-x, 0px), -50%);
+  transition: transform var(--mma-anim, 0.9s) linear;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
