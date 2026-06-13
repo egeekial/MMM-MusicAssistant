@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "A MagicMirror² module that shows now-playing info (artist, album, song, progress, album art) from a Music Assistant server.",
   "main": "MMM-MusicAssistant.js",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
   "keywords": [
     "MagicMirror",
     "MMM",
@@ -18,5 +22,10 @@
   },
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0"
   }
 }

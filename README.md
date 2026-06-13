@@ -33,6 +33,14 @@ cd MMM-MusicAssistant
 npm install
 ```
 
+## Update
+
+```bash
+cd ~/MagicMirror/modules/MMM-MusicAssistant
+git pull
+npm install
+```
+
 ## Getting a token
 
 Music Assistant requires a **long-lived token** to connect to its API
@@ -53,9 +61,9 @@ Add the module to the `modules` array in `~/MagicMirror/config/config.js`:
     player: "Living Room", // name or player_id; auto-falls back to any playing player
     layout: "background",
     showNextUp: true,
-    maxNextUp: 3
+    maxNextUp: 3,
   }
-}
+},
 ```
 
 ### Options

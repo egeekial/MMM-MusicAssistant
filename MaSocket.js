@@ -203,7 +203,7 @@ class MaSocket {
       try {
         this.ws.removeAllListeners();
         this.ws.close();
-      } catch (_) {
+      } catch {
         /* ignore */
       }
       this.ws = null;
