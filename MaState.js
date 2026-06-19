@@ -6,6 +6,11 @@
  * in both. No MagicMirror or network dependencies here.
  */
 
+// Fixed (small) size requested for the blurred background art. It is blurred
+// heavily, so a tiny source looks identical while costing a fraction of the GPU
+// texture / image-decode memory of the full-size foreground art.
+const BG_IMAGE_SIZE = 128;
+
 /**
  * Resolve which queue to display using pinned + auto-fallback rules.
  * @param {Array} players  result of `players/all`
@@ -136,6 +141,11 @@ function buildPayload(queue, opts) {
 
   const { title, artist, album } = extractMeta(item, media, isRadio);
   const img = (it, md) => imageUrl(pickImage(it, md), o.imageSize, o.serverInfo, o.preferredBase);
+  // The blurred background is heavily blurred anyway, so it loads a small image
+  // (a fraction of the GPU texture / decode memory of the full-size art). This is
+  // the key guard against GPU-memory creep over repeated play/stop cycles.
+  const bgImg = (it, md) =>
+    imageUrl(pickImage(it, md), BG_IMAGE_SIZE, o.serverInfo, o.preferredBase);
 
   const nextUp = [];
   if (o.showNextUp && queue.next_item) {
@@ -157,6 +167,7 @@ function buildPayload(queue, opts) {
       ? Math.round(queue.elapsed_time_last_updated * 1000)
       : Date.now(),
     imageUrl: img(item, media),
+    bgImageUrl: bgImg(item, media),
     nextUp: nextUp.slice(0, o.maxNextUp || 3)
   };
 }

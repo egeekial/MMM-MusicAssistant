@@ -35,6 +35,7 @@ Module.register("MMM-MusicAssistant", {
 
   start() {
     this.nowPlaying = null;
+    this.lastPlaying = null; // last non-idle payload, kept across idle gaps
     this.ticker = null;
     this.barWidthPx = 0; // measured lazily; used to position the knob in px
     Log.info(`Starting module: ${this.name}`);
@@ -60,17 +61,40 @@ Module.register("MMM-MusicAssistant", {
         return;
       }
 
-      const canPatch =
-        prev && prev.state !== "idle" &&
-        payload && payload.state !== "idle" &&
-        this.sameStructure(prev, payload);
+      const wasIdle = !prev || prev.state === "idle";
+      const isIdle = !payload || payload.state === "idle";
 
+      // Bridge idle<->playing transitions WITHOUT a full rebuild whenever we can,
+      // so the GPU-heavy blurred background layer is reused instead of recreated
+      // on every stop/start (which otherwise leaks GPU memory until the process
+      // crashes to a black screen). We fall through to updateDom when the card
+      // isn't already on screen or its structure would differ.
+      const wrapper = document.getElementById(`mma-wrapper-${this.identifier}`);
+
+      if (!wasIdle && isIdle && this.config.hideWhenIdle && this.domHasCard && wrapper) {
+        // playing -> idle: just hide the existing card; keep its layers in place.
+        wrapper.classList.add("mma-hidden");
+        return;
+      }
+
+      if (
+        wasIdle && !isIdle && this.domHasCard && wrapper &&
+        this.lastPlaying && this.sameStructure(this.lastPlaying, payload)
+      ) {
+        // idle -> playing, same structure as last time: revive the hidden card.
+        wrapper.classList.remove("mma-hidden");
+        this.patchInPlace(this.lastPlaying, payload);
+        this.lastPlaying = payload;
+        return;
+      }
+
+      const canPatch = !wasIdle && !isIdle && this.sameStructure(prev, payload);
       if (canPatch) {
         this.patchInPlace(prev, payload);
+        this.lastPlaying = payload;
       } else {
-        const wasIdle = !prev || prev.state === "idle";
-        const isIdle = !payload || payload.state === "idle";
         this.updateDom(wasIdle && isIdle ? 0 : this.config.animationSpeed);
+        if (!isIdle) this.lastPlaying = payload;
       }
     }
   },
@@ -142,7 +166,7 @@ Module.register("MMM-MusicAssistant", {
         art.src = next.imageUrl;
       }
       const bg = document.getElementById(`mma-bg-${id}`);
-      if (bg) bg.style.backgroundImage = `url("${next.imageUrl}")`;
+      if (bg) bg.style.backgroundImage = `url("${next.bgImageUrl || next.imageUrl}")`;
     }
 
     if (this.config.showNextUp && next.nextUp) {
@@ -252,9 +276,11 @@ Module.register("MMM-MusicAssistant", {
   getDom() {
     const wrapper = document.createElement("div");
     wrapper.className = `mma mma-${this.config.layout}`;
+    wrapper.id = `mma-wrapper-${this.identifier}`;
 
     const np = this.nowPlaying;
     if (!np || np.state === "idle") {
+      this.domHasCard = false;
       if (this.config.hideWhenIdle) {
         wrapper.classList.add("mma-hidden");
         return wrapper;
@@ -262,12 +288,13 @@ Module.register("MMM-MusicAssistant", {
       wrapper.appendChild(this.buildIdle());
       return wrapper;
     }
+    this.domHasCard = true;
 
-    if (this.config.layout === "background" && np.imageUrl) {
+    if (this.config.layout === "background" && (np.bgImageUrl || np.imageUrl)) {
       const bg = document.createElement("div");
       bg.className = "mma-bg";
       bg.id = `mma-bg-${this.identifier}`;
-      bg.style.backgroundImage = `url("${np.imageUrl}")`;
+      bg.style.backgroundImage = `url("${np.bgImageUrl || np.imageUrl}")`;
       wrapper.appendChild(bg);
     }
 

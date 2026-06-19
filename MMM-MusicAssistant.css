@@ -47,26 +47,20 @@
   inset: -30px;
   background-size: cover;
   background-position: center;
-  filter: blur(26px) brightness(0.45) saturate(1.2);
-  /* translateZ(0) forces the blurred art onto its own GPU layer so the heavy
-     26px blur is rasterized once and is NOT re-painted when the foreground
-     card/progress bar updates. (Avoid will-change here: holding it permanently
-     on a large blurred+masked element keeps an oversized backing store and can
-     cost more than it saves.) */
+  filter: blur(16px) brightness(0.45) saturate(1.2);
+  /* translateZ(0) forces the blurred art onto its own GPU layer so the blur is
+     rasterized once and is NOT re-painted when the foreground card/progress bar
+     updates. The background art is loaded at a small size (it's blurred anyway),
+     so this layer's texture stays cheap. (Avoid will-change here: holding it
+     permanently keeps an oversized backing store and can cost more than it saves.) */
   transform: scale(1.1) translateZ(0);
   z-index: 0;
-  /* Feather every edge of the blurred art to transparent so it dissolves into
-     the black mirror screen. We intersect a horizontal and a vertical fade so
-     all four sides (and the corners) soften, rather than ending at a hard edge.
+  /* Feather the blurred art to transparent so it dissolves into the black mirror
+     screen. A single radial gradient softens all four sides and the corners in one
+     pass -- cheaper than intersecting two linear masks (no extra composite step).
      The parent must NOT clip (no overflow:hidden) or the feather is cut away. */
-  -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 18%, #000 82%, transparent),
-    linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, transparent, #000 18%, #000 82%, transparent),
-    linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-  mask-composite: intersect;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
 }
 
 .mma-background .mma-card,
