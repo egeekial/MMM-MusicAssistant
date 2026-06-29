@@ -74,6 +74,7 @@ Add the module to the `modules` array in `~/MagicMirror/config/config.js`:
 | `token`                  | string  | `""`                      | Long-lived token (required for MA schema ≥ 28). |
 | `player`                 | string  | `""`                      | Preferred player by `player_id` or display name. Auto-falls back to any playing player. Empty = always show whatever is playing. |
 | `layout`                 | string  | `"background"`            | `"background"` (blurred art behind the card) or `"beside"` (art left, text right). |
+| `backgroundBlur`         | boolean | `true`                    | `background` layout only. `false` skips the GPU-heavy blurred-art layer and uses a flat dark panel instead. See [Screen goes black](#screen-goes-black-cursor-still-visible). |
 | `showAlbum`              | boolean | `true`                    | Show the album line (always hidden for radio). |
 | `showProgressBar`        | boolean | `true`                    | Show the progress bar and time labels. |
 | `showNextUp`             | boolean | `true`                    | Show the "Next up" list. |
@@ -104,6 +105,28 @@ No Python dependency — the only runtime dependency is [`ws`](https://www.npmjs
   If your art must load from a different host, set `imageBaseUrl`.
 - Check the MagicMirror logs (`pm2 logs mm` or the terminal) for `[MMM-MusicAssistant]`
   lines.
+
+### Screen goes black (cursor still visible)
+
+If the mirror's content goes **black but you can still see the mouse cursor**, the
+display is still powered on and the Wayland compositor is alive — what has crashed
+is the **Electron/Chromium renderer or GPU process**. (This is different from
+OS-level screen blanking/DPMS, which powers the whole panel off, cursor included.)
+
+The blurred album-art background is this module's most GPU-expensive element and a
+likely trigger on low-power hardware like a Raspberry Pi. To test and/or work around it:
+
+1. **Disable the blurred layer** — set `backgroundBlur: false` in the module config
+   and restart MagicMirror. This drops the heavy GPU layer entirely and uses a flat
+   dark panel. Run it for a few days; if the black screen stops, the layer was the
+   trigger.
+2. **Confirm the crash in the logs** — run MagicMirror from a terminal (or
+   `pm2 logs` / `journalctl --user -u <your-mm-unit>`) and look for Chromium messages
+   like `GPU process exited unexpectedly`, `renderer process crashed`, or `Aw, Snap`.
+   Check `dmesg -w` / `journalctl -k` for OOM-killer entries against the Electron process.
+3. **Keep the blur but stop the crash** — if you want the blurred look back, launch
+   MagicMirror's Electron with `--disable-gpu-compositing` (or `--use-gl=egl`), a
+   common fix for Chromium GPU-process crashes on Raspberry Pi / Wayland.
 
 ## License
 

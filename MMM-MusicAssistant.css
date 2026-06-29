@@ -63,6 +63,12 @@
   mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
 }
 
+/* backgroundBlur: false -> no .mma-bg layer; give the card a flat dark panel so
+   the text stays readable without the GPU-heavy blurred-art layer. */
+.mma-background.mma-flat {
+  background: rgba(18, 18, 18, 0.55);
+}
+
 .mma-background .mma-card,
 .mma-background .mma-nextup {
   position: relative;

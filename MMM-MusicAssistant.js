@@ -13,6 +13,8 @@ Module.register("MMM-MusicAssistant", {
     player: "", // player_id or display name; auto-falls back to any playing player
 
     layout: "background", // "background" (blurred art) | "beside" (art left, text right)
+    backgroundBlur: true, // background layout: false = skip the GPU-heavy blurred
+    // art layer and use a flat dark panel instead (see README troubleshooting)
     showAlbum: true,
     showProgressBar: true,
     showNextUp: true,
@@ -276,6 +278,11 @@ Module.register("MMM-MusicAssistant", {
   getDom() {
     const wrapper = document.createElement("div");
     wrapper.className = `mma mma-${this.config.layout}`;
+    // Flat backdrop instead of the blurred-art layer: keeps the card readable
+    // without the GPU-heavy .mma-bg layer that can crash the renderer over time.
+    if (this.config.layout === "background" && this.config.backgroundBlur === false) {
+      wrapper.classList.add("mma-flat");
+    }
     wrapper.id = `mma-wrapper-${this.identifier}`;
 
     const np = this.nowPlaying;
@@ -290,7 +297,11 @@ Module.register("MMM-MusicAssistant", {
     }
     this.domHasCard = true;
 
-    if (this.config.layout === "background" && (np.bgImageUrl || np.imageUrl)) {
+    if (
+      this.config.layout === "background" &&
+      this.config.backgroundBlur !== false &&
+      (np.bgImageUrl || np.imageUrl)
+    ) {
       const bg = document.createElement("div");
       bg.className = "mma-bg";
       bg.id = `mma-bg-${this.identifier}`;
