@@ -1,0 +1,34 @@
+name: Dependabot auto-merge
+
+# Auto-merges Dependabot PRs for minor/patch updates (and any dev-dependency
+# bump) once required status checks pass. Major runtime bumps are left for a
+# human to review. Requires repo settings: Settings -> General -> "Allow
+# auto-merge" enabled, and a branch protection rule / ruleset on `main` that
+# requires the "lint" check (so --auto waits for CI instead of merging now).
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for minor/patch/dev updates
+        if: >-
+          steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.dependency-type == 'direct:development'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
