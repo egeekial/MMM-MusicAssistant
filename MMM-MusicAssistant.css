@@ -59,8 +59,8 @@
      screen. A single radial gradient softens all four sides and the corners in one
      pass -- cheaper than intersecting two linear masks (no extra composite step).
      The parent must NOT clip (no overflow:hidden) or the feather is cut away. */
-  -webkit-mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
-  mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
 }
 
 .mma-background .mma-card,
