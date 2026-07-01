@@ -95,8 +95,12 @@ function pickImage(item, media) {
  *                                configured serverUrl). Preferred over the
  *                                server-reported base_url, which may point at an
  *                                address the mirror's browser cannot reach.
+ * @param {string} fit           how a remote image fills the box: "contain" (default,
+ *                                whole image, transparent letterbox -- for the visible
+ *                                art tile) or "cover" (fill and crop -- for the blurred
+ *                                background, which needs an opaque color wash).
  */
-function imageUrl(image, size, serverInfo, preferredBase) {
+function imageUrl(image, size, serverInfo, preferredBase, fit) {
   if (!image) return "";
   const info = serverInfo || {};
   const base = (preferredBase || info.base_url || "").replace(/\/+$/, "");
@@ -109,14 +113,18 @@ function imageUrl(image, size, serverInfo, preferredBase) {
   }
 
   if (image.remotely_accessible) {
-    // fit=contain (not cover) so wide logos -- common for radio stations, e.g. the
-    // NPR "npr" wordmark -- are shown whole instead of being square-cropped to a
-    // single letter. Square album art fills the box either way, so this only
-    // changes non-square images. No cbg, so the letterbox stays transparent and
-    // blends into the card / black mirror.
+    // The visible art tile uses fit=contain so wide logos -- common for radio
+    // stations, e.g. the NPR "npr" wordmark -- are shown whole instead of being
+    // square-cropped to a single letter (no cbg, so the letterbox stays
+    // transparent and blends into the card / black mirror). The blurred background
+    // instead uses fit=cover&a=attention: it needs an opaque, filled color wash to
+    // blur, not a mostly-transparent canvas. Square album art fills the box either
+    // way, so this only changes non-square images.
+    const fill =
+      fit === "cover" ? "fit=cover&a=attention" : "fit=contain";
     return (
       `https://images.weserv.nl/?url=${encodeURIComponent(image.path)}` +
-      `&w=${size}&h=${size}&fit=contain`
+      `&w=${size}&h=${size}&${fill}`
     );
   }
 
@@ -145,12 +153,14 @@ function buildPayload(queue, opts) {
     (item && item.streamdetails && item.streamdetails.media_type === "radio");
 
   const { title, artist, album } = extractMeta(item, media, isRadio);
-  const img = (it, md) => imageUrl(pickImage(it, md), o.imageSize, o.serverInfo, o.preferredBase);
+  const img = (it, md) =>
+    imageUrl(pickImage(it, md), o.imageSize, o.serverInfo, o.preferredBase, "contain");
   // The blurred background is heavily blurred anyway, so it loads a small image
   // (a fraction of the GPU texture / decode memory of the full-size art). This is
-  // the key guard against GPU-memory creep over repeated play/stop cycles.
+  // the key guard against GPU-memory creep over repeated play/stop cycles. It uses
+  // "cover" so it stays an opaque color wash worth blurring (see imageUrl).
   const bgImg = (it, md) =>
-    imageUrl(pickImage(it, md), BG_IMAGE_SIZE, o.serverInfo, o.preferredBase);
+    imageUrl(pickImage(it, md), BG_IMAGE_SIZE, o.serverInfo, o.preferredBase, "cover");
 
   const nextUp = [];
   if (o.showNextUp && queue.next_item) {
