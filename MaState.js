@@ -109,9 +109,14 @@ function imageUrl(image, size, serverInfo, preferredBase) {
   }
 
   if (image.remotely_accessible) {
+    // fit=contain (not cover) so wide logos -- common for radio stations, e.g. the
+    // NPR "npr" wordmark -- are shown whole instead of being square-cropped to a
+    // single letter. Square album art fills the box either way, so this only
+    // changes non-square images. No cbg, so the letterbox stays transparent and
+    // blends into the card / black mirror.
     return (
       `https://images.weserv.nl/?url=${encodeURIComponent(image.path)}` +
-      `&w=${size}&h=${size}&fit=cover&a=attention`
+      `&w=${size}&h=${size}&fit=contain`
     );
   }
 
