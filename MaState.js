@@ -7,9 +7,12 @@
  */
 
 // Fixed (small) size requested for the blurred background art. It is blurred
-// heavily, so a tiny source looks identical while costing a fraction of the GPU
-// texture / image-decode memory of the full-size foreground art.
-const BG_IMAGE_SIZE = 128;
+// heavily, so a small source looks identical while costing a fraction of the GPU
+// texture / image-decode memory of the full-size foreground art. Note: Music
+// Assistant's imageproxy only serves specific sizes and returns HTTP 400 for
+// others (e.g. 128 is rejected, leaving the background blank) -- 256 is a valid,
+// still-small size (a quarter of the 512 foreground's texture memory).
+const BG_IMAGE_SIZE = 256;
 
 /**
  * Resolve which queue to display using pinned + auto-fallback rules.
