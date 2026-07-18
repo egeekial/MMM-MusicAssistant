@@ -21,7 +21,7 @@
     "url": "https://github.com/egeekial/MMM-MusicAssistant"
   },
   "dependencies": {
-    "ws": "^8.21.0"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
